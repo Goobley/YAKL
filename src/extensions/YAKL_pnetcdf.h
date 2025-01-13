@@ -7,7 +7,6 @@
 #include <pnetcdf.h>
 #include <stdexcept>
 
-__YAKL_NAMESPACE_WRAPPER_BEGIN__
 namespace yakl {
 
   //Error reporting routine for the PNetCDF I/O
@@ -388,33 +387,26 @@ namespace yakl {
   protected:
 
     /** @private */
-    int ncid;
+    int       ncid;
+    MPI_Comm  comm;
 
   public:
 
-    SimplePNetCDF() { ncid = -1; }
+    SimplePNetCDF(MPI_Comm comm = MPI_COMM_WORLD) { this->comm = comm;  this->ncid = -1; }
     ~SimplePNetCDF() { close(); }
-    /** @private */
-    SimplePNetCDF(SimplePNetCDF &&in) = delete;
-    /** @private */
-    SimplePNetCDF(SimplePNetCDF const &in) = delete;
-    /** @private */
-    SimplePNetCDF &operator=(SimplePNetCDF &&in) = delete;
-    /** @private */
-    SimplePNetCDF &operator=(SimplePNetCDF const &in) = delete;
 
 
     /** @brief Open a file */
     void open(std::string fname , int omode = NC_WRITE , MPI_Info info = MPI_INFO_NULL ) {
       close();
-      ncmpiwrap( ncmpi_open( MPI_COMM_WORLD , fname.c_str() , omode , info , &ncid ) , __LINE__ );
+      ncmpiwrap( ncmpi_open( comm , fname.c_str() , omode , info , &ncid ) , __LINE__ );
     }
 
 
     /** @brief Create a file with an optional flag parameter */
     void create(std::string fname , int flag = NC_CLOBBER , MPI_Info info = MPI_INFO_NULL ) {
       close();
-      ncmpiwrap( ncmpi_create( MPI_COMM_WORLD , fname.c_str() , flag , info , &ncid ) , __LINE__ );
+      ncmpiwrap( ncmpi_create( comm , fname.c_str() , flag , info , &ncid ) , __LINE__ );
     }
 
 
@@ -558,7 +550,7 @@ namespace yakl {
     /** @brief Collectively write an entire Array at once */
     template <class T, int rank, int myMem, int myStyle>
     void write_all(Array<T,rank,myMem,myStyle> const &arr , std::string varName , std::vector<MPI_Offset> start ) {
-      if (rank != start   .size()) { yakl_throw("start.size() != Array's rank"); }
+      if (rank != start   .size()) { Kokkos::abort("start.size() != Array's rank"); }
       std::vector<MPI_Offset> count(rank);
       for (int i=0; i < rank; i++) { count[i] = arr.extent(i); }
       int varid = get_var_id(varName);
@@ -569,7 +561,7 @@ namespace yakl {
     /** @brief Collectively read an entire Array at once ... in pieces? */
     template <class T, int rank, int myMem, int myStyle>
     void read_all(Array<T,rank,myMem,myStyle> const &arr_in , std::string varName , std::vector<MPI_Offset> start ) {
-      if (rank != start   .size()) { yakl_throw("start.size() != Array's rank"); }
+      if (rank != start   .size()) { Kokkos::abort("start.size() != Array's rank"); }
       Array<T,rank,memHost,myStyle> arr;
       if constexpr (myMem == memDevice) { arr = arr_in.createHostObject(); }
       else                              { arr = arr_in;                    }
@@ -614,7 +606,7 @@ namespace yakl {
     template <class T, int rank, int myMem, int myStyle>
     void write1_all(Array<T,rank,myMem,myStyle> const &arr , std::string varName ,
                     int ind , std::vector<MPI_Offset> start_in , std::string ulDimName="unlim" ) {
-      if (rank != start_in.size()) { yakl_throw("start_in.size() != Array's rank"); }
+      if (rank != start_in.size()) { Kokkos::abort("start_in.size() != Array's rank"); }
       std::vector<MPI_Offset> start(rank+1);
       std::vector<MPI_Offset> count(rank+1);
       start[0] = ind;
@@ -643,13 +635,12 @@ namespace yakl {
       else if ( std::is_same<typename std::remove_cv<T>::type ,unsigned  long>::value ) { return NC_UINT64; }
       else if ( std::is_same<typename std::remove_cv<T>::type ,         float>::value ) { return NC_FLOAT;  }
       else if ( std::is_same<typename std::remove_cv<T>::type ,        double>::value ) { return NC_DOUBLE; }
-      else { yakl_throw("Invalid type"); }
+      else { Kokkos::abort("Invalid type"); }
       return -1;
     }
 
   };
 
 }
-__YAKL_NAMESPACE_WRAPPER_BEGIN__
 
 

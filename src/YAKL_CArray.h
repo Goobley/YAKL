@@ -177,9 +177,14 @@ namespace yakl {
                                            size_t d8 ) : Array(label,Dims(d1,d2,d3,d4,d5,d6,d7,d8)) {
       static_assert( rank == 8 , "ERROR: Calling constructor with 8 bound on non-rank-8 array" );
     }
+
     /** @brief Generic initializer-list or std::vector based owned constructor
       * \copydetails doxhide_CArray_owned_constructors */
-    KOKKOS_INLINE_FUNCTION Array(char const * label, Dims const dims) {
+    template <
+      class INT,
+      typename std::enable_if< std::is_integral<INT>::value , bool>::type = false
+    >
+    KOKKOS_INLINE_FUNCTION Array(char const * label, DimsT<INT> const dims) {
       static_assert( rank >= 1 && rank <= 8 , "ERROR: Creating Array with a rank < 1 or > 8" );
       nullify();
       #ifdef KOKKOS_ENABLE_DEBUG

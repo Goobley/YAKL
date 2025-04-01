@@ -540,13 +540,13 @@ namespace yakl {
             }
           }
         }
-        if (createArr) { arr = Array<T,rank,myMem,myStyle>(varName.c_str(),dimSizes); }
+        if (createArr) { arr = Array<T,rank,myMem,myStyle>(varName.c_str(), Dims(dimSizes)); }
       } else { Kokkos::abort("Variable does not exist"); }
 
       if (myMem == memDevice) {
         auto arrHost = arr.createHostObject();
         if (std::is_same<T,bool>::value) {
-          Array<int,rank,memHost,myStyle> tmp("tmp",dimSizes);
+          Array<int,rank,memHost,myStyle> tmp("tmp", Dims(dimSizes));
           var.getVar(tmp.data());
           for (int i=0; i < arr.totElems(); i++) { arrHost.data()[i] = tmp.data()[i] == 1; }
         } else {
@@ -556,7 +556,7 @@ namespace yakl {
         Kokkos::fence();
       } else {
         if (std::is_same<T,bool>::value) {
-          Array<int,rank,memHost,myStyle> tmp("tmp",dimSizes);
+          Array<int,rank,memHost,myStyle> tmp("tmp", Dims(dimSizes));
           var.getVar(tmp.data());
           for (int i=0; i < arr.totElems(); i++) { arr.data()[i] = tmp.data()[i] == 1; }
         } else {

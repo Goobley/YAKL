@@ -44,39 +44,35 @@ namespace yakl {
     * You can pass an initializer list `{...}`  or std::vector as a parameter to this type,
     * and it can be converted to a yakl::Dims object.
     */
-  class Dims {
-#ifndef YAKL_INT64_RESHAPE
-    using dims_index = int;
-#else
-    using dims_index = int64_t;
-#endif
+  template <typename dims_index>
+  class DimsT {
   public:
     /** @private */
     dims_index data[8];
     /** @private */
-    dims_index rank;
+    int rank;
 
-    KOKKOS_INLINE_FUNCTION Dims() {rank = 0;}
+    KOKKOS_INLINE_FUNCTION DimsT() {rank = 0;}
     /** @brief Construct a 1-D Dims object) */
-    KOKKOS_INLINE_FUNCTION Dims(int i0) {
+    KOKKOS_INLINE_FUNCTION DimsT(dims_index i0) {
       data[0] = i0;
       rank = 1;
     }
     /** @brief Construct a 2-D Dims object) */
-    KOKKOS_INLINE_FUNCTION Dims(int i0, int i1) {
+    KOKKOS_INLINE_FUNCTION DimsT(dims_index i0, dims_index i1) {
       data[0] = i0;
       data[1] = i1;
       rank = 2;
     }
     /** @brief Construct a 3-D Dims object) */
-    KOKKOS_INLINE_FUNCTION Dims(int i0, int i1, int i2) {
+    KOKKOS_INLINE_FUNCTION DimsT(dims_index i0, dims_index i1, dims_index i2) {
       data[0] = i0;
       data[1] = i1;
       data[2] = i2;
       rank = 3;
     }
     /** @brief Construct a 4-D Dims object) */
-    KOKKOS_INLINE_FUNCTION Dims(int i0, int i1, int i2, int i3) {
+    KOKKOS_INLINE_FUNCTION DimsT(dims_index i0, dims_index i1, dims_index i2, dims_index i3) {
       data[0] = i0;
       data[1] = i1;
       data[2] = i2;
@@ -84,7 +80,7 @@ namespace yakl {
       rank = 4;
     }
     /** @brief Construct a 5-D Dims object) */
-    KOKKOS_INLINE_FUNCTION Dims(int i0, int i1, int i2, int i3, int i4) {
+    KOKKOS_INLINE_FUNCTION DimsT(dims_index i0, dims_index i1, dims_index i2, dims_index i3, dims_index i4) {
       data[0] = i0;
       data[1] = i1;
       data[2] = i2;
@@ -93,7 +89,7 @@ namespace yakl {
       rank = 5;
     }
     /** @brief Construct a 6-D Dims object) */
-    KOKKOS_INLINE_FUNCTION Dims(int i0, int i1, int i2, int i3, int i4, int i5) {
+    KOKKOS_INLINE_FUNCTION DimsT(dims_index i0, dims_index i1, dims_index i2, dims_index i3, dims_index i4, dims_index i5) {
       data[0] = i0;
       data[1] = i1;
       data[2] = i2;
@@ -103,7 +99,7 @@ namespace yakl {
       rank = 6;
     }
     /** @brief Construct a 7-D Dims object) */
-    KOKKOS_INLINE_FUNCTION Dims(int i0, int i1, int i2, int i3, int i4, int i5, int i6) {
+    KOKKOS_INLINE_FUNCTION DimsT(dims_index i0, dims_index i1, dims_index i2, dims_index i3, dims_index i4, dims_index i5, dims_index i6) {
       data[0] = i0;
       data[1] = i1;
       data[2] = i2;
@@ -114,7 +110,7 @@ namespace yakl {
       rank = 7;
     }
     /** @brief Construct an 8-D Dims object) */
-    KOKKOS_INLINE_FUNCTION Dims(int i0, int i1, int i2, int i3, int i4, int i5, int i6, int i7) {
+    KOKKOS_INLINE_FUNCTION DimsT(dims_index i0, dims_index i1, dims_index i2, dims_index i3, dims_index i4, dims_index i5, dims_index i6, dims_index i7) {
       data[0] = i0;
       data[1] = i1;
       data[2] = i2;
@@ -126,21 +122,22 @@ namespace yakl {
       rank = 8;
     }
 
-    KOKKOS_INLINE_FUNCTION Dims(Dims const &dims) {
+    template <class INT, typename std::enable_if< std::is_integral<INT>::value , bool>::type = false>
+    KOKKOS_INLINE_FUNCTION DimsT(DimsT<INT> const &dims) {
       rank = dims.rank;
       for (int i=0; i < rank; i++) { data[i] = dims[i]; }
     }
-    KOKKOS_INLINE_FUNCTION Dims &operator=(Dims const &dims) {
+    KOKKOS_INLINE_FUNCTION DimsT &operator=(DimsT const &dims) {
       if (this == &dims) { return *this; }
       rank = dims.rank;
       for (int i=0; i < rank; i++) { data[i] = dims[i]; }
       return *this;
     }
-    KOKKOS_INLINE_FUNCTION Dims(Dims &&dims) {
+    KOKKOS_INLINE_FUNCTION DimsT(DimsT &&dims) {
       rank = dims.rank;
       for (int i=0; i < rank; i++) { data[i] = dims[i]; }
     }
-    KOKKOS_INLINE_FUNCTION Dims &operator=(Dims &&dims) {
+    KOKKOS_INLINE_FUNCTION DimsT &operator=(DimsT &&dims) {
       if (this == &dims) { return *this; }
       rank = dims.rank;
       for (int i=0; i < rank; i++) { data[i] = dims[i]; }
@@ -149,25 +146,30 @@ namespace yakl {
 
     /** @brief This constructor allows converting a std::vector or initializer list to a yakl::Dims object. */
     template <class INT, typename std::enable_if< std::is_integral<INT>::value , bool>::type = false>
-    Dims(std::vector<INT> const dims) {
+    DimsT(std::vector<INT> const dims) {
       rank = dims.size();
       for (int i=0; i < rank; i++) { data[i] = dims[i]; }
     }
 
     /** @brief This constructor allows converting a CSArray object to a yakl::Dims object. */
     template <class INT, size_t RANK, typename std::enable_if< std::is_integral<INT>::value , bool>::type = false>
-    Dims(CSArray<INT,1,RANK> const dims) {
+    DimsT(CSArray<INT,1,RANK> const dims) {
       rank = RANK;
       for (int i=0; i < rank; i++) { data[i] = dims(i); }
     }
 
     /** @brief These objects are always indexed with square bracket notation like a std::vector or std::array. */
-    KOKKOS_INLINE_FUNCTION int operator[] (int i) const { return data[i]; }
+    KOKKOS_INLINE_FUNCTION dims_index operator[] (int i) const { return data[i]; }
 
     /** @brief Get the number of dimensions. */
     KOKKOS_INLINE_FUNCTION int size() const { return rank; }
   };
 
+#ifndef YAKL_INT64_RESHAPE
+    typedef DimsT<int> Dims;
+#else
+    typedef DimsT<int64_t> Dims;
+#endif
 
 
   // Describes a single array bound. Used for Fortran array bounds

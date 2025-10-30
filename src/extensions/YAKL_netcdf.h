@@ -206,6 +206,21 @@ namespace yakl {
       void getVar(char               *data) const { ncwrap( nc_get_var_text     ( ncid , id , data ) , __LINE__ ); }
       void getVar(bool               *data) const { Kokkos::abort("ERROR: Cannot read bools directly from netCDF file. This should've been intercepted and changed to int."); }
 
+      void getVar(std::vector<size_t> start, std::vector<size_t> count, double             *data) const { ncwrap( nc_get_vara_double   ( ncid , id , start.data(), count.data(), data ) , __LINE__ ); }
+      void getVar(std::vector<size_t> start, std::vector<size_t> count, float              *data) const { ncwrap( nc_get_vara_float    ( ncid , id , start.data(), count.data(), data ) , __LINE__ ); }
+      void getVar(std::vector<size_t> start, std::vector<size_t> count, int                *data) const { ncwrap( nc_get_vara_int      ( ncid , id , start.data(), count.data(), data ) , __LINE__ ); }
+      void getVar(std::vector<size_t> start, std::vector<size_t> count, long               *data) const { ncwrap( nc_get_vara_long     ( ncid , id , start.data(), count.data(), data ) , __LINE__ ); }
+      void getVar(std::vector<size_t> start, std::vector<size_t> count, long long          *data) const { ncwrap( nc_get_vara_longlong ( ncid , id , start.data(), count.data(), data ) , __LINE__ ); }
+      void getVar(std::vector<size_t> start, std::vector<size_t> count, signed char        *data) const { ncwrap( nc_get_vara_schar    ( ncid , id , start.data(), count.data(), data ) , __LINE__ ); }
+      void getVar(std::vector<size_t> start, std::vector<size_t> count, short              *data) const { ncwrap( nc_get_vara_short    ( ncid , id , start.data(), count.data(), data ) , __LINE__ ); }
+      void getVar(std::vector<size_t> start, std::vector<size_t> count, unsigned char      *data) const { ncwrap( nc_get_vara_uchar    ( ncid , id , start.data(), count.data(), data ) , __LINE__ ); }
+      void getVar(std::vector<size_t> start, std::vector<size_t> count, unsigned int       *data) const { ncwrap( nc_get_vara_uint     ( ncid , id , start.data(), count.data(), data ) , __LINE__ ); }
+      void getVar(std::vector<size_t> start, std::vector<size_t> count, unsigned long      *data) const { ncwrap( nc_get_vara_uint     ( ncid , id , start.data(), count.data(), (unsigned int *) data ) , __LINE__ ); }
+      void getVar(std::vector<size_t> start, std::vector<size_t> count, unsigned long long *data) const { ncwrap( nc_get_vara_ulonglong( ncid , id , start.data(), count.data(), data ) , __LINE__ ); }
+      void getVar(std::vector<size_t> start, std::vector<size_t> count, unsigned short     *data) const { ncwrap( nc_get_vara_ushort   ( ncid , id , start.data(), count.data(), data ) , __LINE__ ); }
+      void getVar(std::vector<size_t> start, std::vector<size_t> count, char               *data) const { ncwrap( nc_get_vara_text     ( ncid , id , start.data(), count.data(), data ) , __LINE__ ); }
+      void getVar(std::vector<size_t> start, std::vector<size_t> count, bool               *data) const { Kokkos::abort("ERROR: Cannot read bools directly from netCDF file. This should've been intercepted and changed to int."); }
+
       void print() {
         std::cout << "Variable Name: " << name << "\n";
         std::cout << "Dims: \n";
@@ -520,7 +535,7 @@ namespace yakl {
     void read(Array<T,rank,myMem,myStyle> &arr , std::string varName) {
       // Make sure the variable is there and is the right dimension
       auto var = file.getVar(varName);
-      std::vector<int> dimSizes(rank);
+      std::vector<size_t> dimSizes(rank);
       if ( ! var.isNull() ) {
         auto varDims = var.getDims();
         if (varDims.size() != rank) { Kokkos::abort("Existing variable's rank != array's rank"); }
@@ -548,7 +563,7 @@ namespace yakl {
         if (std::is_same<T,bool>::value) {
           Array<int,rank,memHost,myStyle> tmp("tmp", Dims(dimSizes));
           var.getVar(tmp.data());
-          for (int i=0; i < arr.totElems(); i++) { arrHost.data()[i] = tmp.data()[i] == 1; }
+          for (size_t i=0; i < arr.totElems(); i++) { arrHost.data()[i] = tmp.data()[i] == 1; }
         } else {
           var.getVar(arrHost.data());
         }
@@ -558,9 +573,74 @@ namespace yakl {
         if (std::is_same<T,bool>::value) {
           Array<int,rank,memHost,myStyle> tmp("tmp", Dims(dimSizes));
           var.getVar(tmp.data());
-          for (int i=0; i < arr.totElems(); i++) { arr.data()[i] = tmp.data()[i] == 1; }
+          for (size_t i=0; i < arr.totElems(); i++) { arr.data()[i] = tmp.data()[i] == 1; }
         } else {
           var.getVar(arr.data());
+        }
+      }
+    }
+
+    /** @brief Read a plane of an Array with index ind on name unlimDim */
+    template <class T, int rank, int myMem, int myStyle>
+    void read1(Array<T,rank,myMem,myStyle> &arr , std::string varName, int ind, std::string unlimDim) {
+      // Make sure the variable is there and is the right dimension
+      auto var = file.getVar(varName);
+      std::vector<size_t> dimSizes(rank+1);
+      int unlim_idx = -1;
+      if ( ! var.isNull() ) {
+        auto varDims = var.getDims();
+        if (varDims.size() != rank+1) { Kokkos::abort("Existing variable's rank != array's rank"); }
+        if (myStyle == styleC) {
+          for (int i=0; i < varDims.size(); i++) { dimSizes[i] = varDims[i].getSize(); }
+        } else if (myStyle == styleFortran) {
+          for (int i=0; i < varDims.size(); i++) { dimSizes[i] = varDims[varDims.size()-1-i].getSize(); }
+        }
+        for (int i = 0; i < varDims.size(); ++i) {
+          if (varDims[i].getName() == unlimDim) {
+            unlim_idx = i;
+            dimSizes[i] = 1;
+            break;
+          }
+        }
+        bool createArr = ! arr.initialized();
+        if (arr.initialized()) {
+          int j = 0;
+          for (int i=0; i < dimSizes.size(); i++) {
+            if (i == unlim_idx) {
+              continue;
+            }
+            if (dimSizes[i] != arr.extent(j)) {
+              #ifdef KOKKOS_ENABLE_DEBUG
+                std::cout << "WARNING: Array dims wrong size; deallocating previous array and allocating a new one\n";
+              #endif
+              createArr = true;
+            }
+            j += 1;
+          }
+        }
+        if (createArr) { arr = Array<T,rank,myMem,myStyle>(varName.c_str(), Dims(dimSizes)); }
+      } else { Kokkos::abort("Variable does not exist"); }
+
+      std::vector<size_t> starts(rank+1, 0);
+      starts[unlim_idx] = ind;
+      if (myMem == memDevice) {
+        auto arrHost = arr.createHostObject();
+        if (std::is_same<T,bool>::value) {
+          Array<int,rank,memHost,myStyle> tmp("tmp", Dims(dimSizes));
+          var.getVar(starts, dimSizes, tmp.data());
+          for (size_t i=0; i < arr.totElems(); i++) { arrHost.data()[i] = tmp.data()[i] == 1; }
+        } else {
+          var.getVar(starts, dimSizes, arrHost.data());
+        }
+        arrHost.deep_copy_to(arr);
+        Kokkos::fence();
+      } else {
+        if (std::is_same<T,bool>::value) {
+          Array<int,rank,memHost,myStyle> tmp("tmp", Dims(dimSizes));
+          var.getVar(starts, dimSizes, tmp.data());
+          for (size_t i=0; i < arr.totElems(); i++) { arr.data()[i] = tmp.data()[i] == 1; }
+        } else {
+          var.getVar(starts, dimSizes, arr.data());
         }
       }
     }

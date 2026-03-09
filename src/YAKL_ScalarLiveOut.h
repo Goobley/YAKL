@@ -88,7 +88,7 @@ namespace yakl {
     inline void hostWrite(T val) {
       // Copy data to device
       YAKL_SCOPE( myData , this->data );
-      c::parallel_for( YAKL_AUTO_LABEL() , c::Bounds<1>(1) , KOKKOS_LAMBDA (int dummy) {
+      c::parallel_for( YAKL_AUTO_LABEL() , c::Bounds<1, true>(1) , KOKKOS_LAMBDA (int dummy) {
         myData(0) = val;
       });
     }
